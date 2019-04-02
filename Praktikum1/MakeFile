@@ -1,0 +1,2 @@
+g++ -o praktikum1.o main.cpp
+./praktikum1.o
