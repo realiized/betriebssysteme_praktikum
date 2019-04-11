@@ -1,5 +1,6 @@
 #include <iostream>
 #include <string>
+#include <stdio.h>
 #include <unistd.h>
 #include <sys/types.h>
 #include <cstring>
@@ -10,60 +11,91 @@
 
 using namespace std;
 
-vector<string> getWords(string str)
+int parseCommand(char *input, char **args)
 {
-    // Used to split string around spaces.
-    istringstream ss(str);
-    vector<string> words;
-    // Traverse through all words
-    do {
-        // Read a word
-        string word;
-        ss >> word;
+    int cmdCount = 0;
+    while (*input != '\0') {       /* wenn nicht ende des inputs */
+          while (*input == ' ' || *input == '\t' || *input == '\n')
+               *input++ = '\0';     /* space mit 0 füllen    */
+          *args++ = input;          /* speichern der argumentlocation    */
+          while (*input != '\0' && *input != ' ' &&
+                 *input != '\t' && *input != '\n')
+               input++;             /* überspringe args bis..*/
 
-        // Print the read word
-        words.push_back(word);
+          cmdCount++;
+     }
+     *args = '\0';                 /*Ende der args Liste*/
+    return cmdCount;
+}
 
-        // While there is more to read
-    } while (ss);
+void  executeWait(char **args)
+{
+     pid_t  pid;
+     int    status;
 
-    return words;
+     if ((pid = fork()) < 0) {
+          printf("Fork  failed!\n");
+     }
+     else if (pid == 0) {
+          if (execvp(*args, args) < 0) {
+               printf("Execution failed!\n");
+          }
+     }
+     else {                                  /* Vaterprozess    */
+          while (wait(&status) != pid);       /* warte auf beendigung */
+
+     }
+}
+
+int  execute(char **args, int cmdCount)
+{
+     pid_t  pid;
+     int    status;
+
+     if ((pid = fork()) < 0) {
+          printf("Fork  failed!\n");
+     }
+     else if (pid == 0) {
+          if (execvp(*args, args) < 0) {
+               printf("Execution failed!\n");
+          }
+     }
+     else {                                  /* Vaterprozess    */
+          while (wait(&status) != pid);       /* warte auf beendigung */
+
+     }
+     return pid;
 }
 
 
 int main()
 {
     bool end = false;
-    string input = "";
-    vector<string>words;
-    int child_status;
+    char  input[1024];
+    char  *args[64];
 
     cout << "Welcome to the shell" << endl;
 
     while(!end){
         cout << "MyShell > ";
-        getline(cin, input);
-
-        words = getWords(input);
-
-        char* args[words.size()];
-        char word[100];
-        for(int i = 0; i < words.size(); i++){
-            strcpy(word, words.front().c_str());
-            args[i] = word;
+        gets(input);
+        int cmdCount = parseCommand(input, args);
+        if (strcmp(args[0], "logout") == 0){
+            cout << "Wollen sie wirklich beenden? Y/N" << endl;
+            gets(input);
+            parseCommand(input, args);
+            if(strcmp(args[0], "Y") == 0){
+                return 0;
+            }
         }
 
+        string last(args[cmdCount-1]);
 
-
-        pid_t pid = fork();
-        if(pid==0){
-            execvp(args[0],
-                   args);
+        if(last == "&"){
+            args[cmdCount-1] = "";
+            cout << "New Process started with PID " << execute(args, cmdCount) << endl;
         }
-        else{
-            waitpid(pid, NULL, NULL);
-        }
-
+        executeWait(args);
     }
     return 0;
 }
