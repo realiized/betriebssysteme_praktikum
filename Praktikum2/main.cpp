@@ -42,7 +42,7 @@ void  executeWait(char **args)
           }
      }
      else {                                  /* Vaterprozess    */
-          while (wait(&status) != pid);       /* warte auf beendigung */
+          while (waitpid(pid, &status, WNOHANG) != pid);       /* warte auf beendigung */
 
      }
 }
@@ -59,10 +59,7 @@ int  execute(char **args, int cmdCount)
           if (execvp(*args, args) < 0) {
                printf("Execution failed!\n");
           }
-     }
-     else {                                  /* Vaterprozess    */
-          while (wait(&status) != pid);       /* warte auf beendigung */
-
+          exit(0);
      }
      return pid;
 }
@@ -92,10 +89,12 @@ int main()
         string last(args[cmdCount-1]);
 
         if(last == "&"){
-            args[cmdCount-1] = "";
+            //args[cmdCount-1] = "";
             cout << "New Process started with PID " << execute(args, cmdCount) << endl;
         }
-        executeWait(args);
+        else{
+            executeWait(args);
+        }
     }
     return 0;
 }
