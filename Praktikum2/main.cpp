@@ -39,10 +39,11 @@ void  executeWait(char **args)
      else if (pid == 0) {
           if (execvp(*args, args) < 0) {
                printf("Execution failed!\n");
+               exit(0);
           }
      }
      else {                                  /* Vaterprozess    */
-          while (waitpid(pid, &status, WNOHANG) != pid);       /* warte auf beendigung */
+          waitpid(pid, &status, WUNTRACED);       /* warte auf beendigung */
 
      }
 }
@@ -68,18 +69,22 @@ int  execute(char **args, int cmdCount)
 int main()
 {
     bool end = false;
-    char  input[1024];
+    string inputString;
     char  *args[64];
 
     cout << "Welcome to the shell" << endl;
 
     while(!end){
         cout << "MyShell > ";
-        gets(input);
+        getline(cin, inputString);
+        char input[inputString.size()];
+        strcpy(input, inputString.c_str());
+        cout << input << endl;
         int cmdCount = parseCommand(input, args);
         if (strcmp(args[0], "logout") == 0){
             cout << "Wollen sie wirklich beenden? Y/N" << endl;
-            gets(input);
+            getline(cin, inputString);
+            strcpy(input, inputString.c_str());
             parseCommand(input, args);
             if(strcmp(args[0], "Y") == 0){
                 return 0;
@@ -89,7 +94,7 @@ int main()
         string last(args[cmdCount-1]);
 
         if(last == "&"){
-            //args[cmdCount-1] = "";
+            args[cmdCount-1] = '\0';
             cout << "New Process started with PID " << execute(args, cmdCount) << endl;
         }
         else{

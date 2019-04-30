@@ -79,9 +79,11 @@ int main()
     printf("Main: Stack = %p; %p; %p \n", &stack0, &stack1, &stack2);
     printf("Main:  Heap = %p; %p; %p \n", heap0, heap1, heap2);
 
+    printf("\n");
     function();
     // erneut aufrufen und man sieht, dass der stack die gleichen adressen verwendet (nach letzter Durchführung gelöscht)
-    //function();
+    printf("\n");
+    function();
 
     //printf("%i",sizeof(int)); Size von allen locals zusammenzählen um zu wissen wie viel speicher allokiert wird
 
