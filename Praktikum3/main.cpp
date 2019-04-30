@@ -15,16 +15,25 @@ using namespace std;
 //Nur wenn im Vordergrund ein  Prozess läuft soll CTRL C und Z auf diesen wirken
 
 //VARIABLES
-pid_t vgProcess;
-vector<pid_t> allProcesses;
+pid_t fgProcess;
+vector<pid_t> hgProcesses;
+vector<pid_t> stoppedProcesses;
 //-VARIABLES
 
 void handle_SIGINT(int signum){
     printf("SIGINT");
+    if(fgProcess > 0){
+        kill(fgProcess, SIGINT);
+    }
 }
 
 void handle_SIGTSTP(int signum){
     printf("SIGSTP");
+    if(vgProcess > 0){
+        kill(vgProcess, SIGTSTP);
+        stoppedProcesses.push_back(vgProcess);
+        fgProcess = 0;
+    }
 }
 
 int parseCommand(char *input, char **args)
@@ -112,6 +121,16 @@ int main()
             if(strcmp(args[0], "Y") == 0){
                 return 0;
             }
+        }
+
+        if(strcmp(args[0], "fg") == 0){
+            kill(stoppedProcesses.at(0), SIGCONT);
+            fgProcess = stoppedProcesses.at(0);
+            stoppedProcesses.erase(stoppedProcesses.begin(), stoppedProcesses.begin());
+        }
+
+        if(strcmp(args[0], "bg") == 0){
+
         }
 
         string last(args[cmdCount-1]);
