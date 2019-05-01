@@ -15,16 +15,32 @@ using namespace std;
 //Nur wenn im Vordergrund ein  Prozess läuft soll CTRL C und Z auf diesen wirken
 
 //VARIABLES
-pid_t vgProcess;
-vector<pid_t> allProcesses;
+pid_t fgProcess;
+vector<pid_t> hgProcesses;
+vector<pid_t> stoppedProcesses;
 //-VARIABLES
 
-void handle_SIGINT(int signum){
-    printf("SIGINT");
+void handle_SIGINT(int signum){ 
+    if(fgProcess > 0){
+        printf(" -> Killed process with id %d [SIGINT] \n", fgProcess);
+        kill(fgProcess, SIGINT);
+        fgProcess = 0;
+    }
+    else{
+        printf(" -> There is no foregroundprocess to kill!\n");
+    }
 }
 
 void handle_SIGTSTP(int signum){
-    printf("SIGSTP");
+    if(fgProcess > 0){
+        printf(" -> Stopped process with id %d [SIGTSTP] \n", fgProcess);
+        stoppedProcesses.push_back(fgProcess);
+        kill(fgProcess, SIGTSTP);
+        fgProcess = 0;
+    }
+    else{
+        printf(" -> There is no foregroundprocess to stop!\n");
+    }
 }
 
 int parseCommand(char *input, char **args)
@@ -59,6 +75,7 @@ void  executeWait(char **args)
           }
      }
      else {                                  /* Vaterprozess    */
+          fgProcess = pid;
           waitpid(pid, &status, WUNTRACED);       /* warte auf beendigung */
 
      }
@@ -104,6 +121,10 @@ int main()
         strcpy(input, inputString.c_str());
         cout << input << endl;
         int cmdCount = parseCommand(input, args);
+
+        string last(args[cmdCount-1]);
+
+
         if (strcmp(args[0], "logout") == 0){
             cout << "Wollen sie wirklich beenden? Y/N" << endl;
             getline(cin, inputString);
@@ -113,13 +134,17 @@ int main()
                 return 0;
             }
         }
+        else if(strcmp(args[0], "fg") == 0){
+            kill(stoppedProcesses.at(0), SIGCONT);
+            fgProcess = stoppedProcesses.at(0);
+            stoppedProcesses.erase(stoppedProcesses.begin());
+        }
+        else if(strcmp(args[0], "bg") == 0){
 
-        string last(args[cmdCount-1]);
-
-        if(last == "&"){
+        }
+        else if(last == "&"){
             args[cmdCount-1] = '\0';
-            allProcesses.push_back(execute(args, cmdCount));
-            cout << "New Process started with PID " << allProcesses[allProcesses.size() - 1] << endl;
+            cout << "New Process started with PID " << execute(args, cmdCount) << endl;
         }
         else{
             executeWait(args);

@@ -24,15 +24,19 @@ void handle_SIGINT(int signum){
     printf("SIGINT");
     if(fgProcess > 0){
         kill(fgProcess, SIGINT);
+        fgProcess = 0;
     }
 }
 
 void handle_SIGTSTP(int signum){
     printf("SIGSTP");
-    if(vgProcess > 0){
-        kill(vgProcess, SIGTSTP);
-        stoppedProcesses.push_back(vgProcess);
+    if(fgProcess > 0){
+        stoppedProcesses.push_back(fgProcess);
+        kill(fgProcess, SIGTSTP);
         fgProcess = 0;
+    }
+    else{
+        printf("No process to stop active!");
     }
 }
 
@@ -68,6 +72,7 @@ void  executeWait(char **args)
           }
      }
      else {                                  /* Vaterprozess    */
+          fgProcess = pid;
           waitpid(pid, &status, WUNTRACED);       /* warte auf beendigung */
 
      }
@@ -113,6 +118,10 @@ int main()
         strcpy(input, inputString.c_str());
         cout << input << endl;
         int cmdCount = parseCommand(input, args);
+
+        string last(args[cmdCount-1]);
+
+
         if (strcmp(args[0], "logout") == 0){
             cout << "Wollen sie wirklich beenden? Y/N" << endl;
             getline(cin, inputString);
@@ -122,20 +131,15 @@ int main()
                 return 0;
             }
         }
-
-        if(strcmp(args[0], "fg") == 0){
+        else if(strcmp(args[0], "fg") == 0){
             kill(stoppedProcesses.at(0), SIGCONT);
             fgProcess = stoppedProcesses.at(0);
-            stoppedProcesses.erase(stoppedProcesses.begin(), stoppedProcesses.begin());
+            stoppedProcesses.erase(stoppedProcesses.begin());
         }
-
-        if(strcmp(args[0], "bg") == 0){
+        else if(strcmp(args[0], "bg") == 0){
 
         }
-
-        string last(args[cmdCount-1]);
-
-        if(last == "&"){
+        else if(last == "&"){
             args[cmdCount-1] = '\0';
             allProcesses.push_back(execute(args, cmdCount));
             cout << "New Process started with PID " << allProcesses[allProcesses.size() - 1] << endl;
