@@ -149,7 +149,6 @@ int main()
                 fgProcess = hgProcesses.at(0);
                 hgProcesses.erase(hgProcesses.begin());
                 waitpid(fgProcess, &status, WUNTRACED);
-                cout << "waited" << endl;
             }
             else{
                 printf("There are no processes to continue in the foreground.\n");
