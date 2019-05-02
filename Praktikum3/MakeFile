@@ -1,2 +1,0 @@
-g++ -o myShell.o main.cpp
-./myShell.o

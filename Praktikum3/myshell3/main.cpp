@@ -18,6 +18,7 @@ using namespace std;
 pid_t fgProcess;
 vector<pid_t> hgProcesses;
 vector<pid_t> stoppedProcesses;
+int status;
 //-VARIABLES
 
 void handle_SIGINT(int signum){
@@ -26,6 +27,9 @@ void handle_SIGINT(int signum){
         kill(fgProcess, SIGINT);
         fgProcess = 0;
     }
+    else{
+        printf("No process to terminate active! \n");
+    }
 }
 
 void handle_SIGTSTP(int signum){
@@ -33,10 +37,11 @@ void handle_SIGTSTP(int signum){
     if(fgProcess > 0){
         stoppedProcesses.push_back(fgProcess);
         kill(fgProcess, SIGTSTP);
+        printf("The size of the stopped Processes: %d \n",stoppedProcesses.size());
         fgProcess = 0;
     }
     else{
-        printf("No process to stop active!");
+        printf("No process to stop active! \n");
     }
 }
 
@@ -109,7 +114,7 @@ int main()
     printf("Signal Handler for CTRL+Z loaded!\n");
     //-LOAD
 
-    cout << "Welcome to the shell" << endl;
+    cout << "Welcome to the shell V2" << endl;
 
     while(!end){
         cout << "MyShell > ";
@@ -123,26 +128,45 @@ int main()
 
 
         if (strcmp(args[0], "logout") == 0){
-            cout << "Wollen sie wirklich beenden? Y/N" << endl;
+            cout << "Wollen sie wirklich beenden? Y/N\n" << endl;
             getline(cin, inputString);
             strcpy(input, inputString.c_str());
             parseCommand(input, args);
             if(strcmp(args[0], "Y") == 0){
-                return 0;
+                if(stoppedProcesses.size() > 0){
+                    printf("There are still running processes in the background!\n");
+                }
+                else{
+                    return 0;
+                }
+
             }
         }
-        else if(strcmp(args[0], "fg") == 0){
-            kill(stoppedProcesses.at(0), SIGCONT);
-            fgProcess = stoppedProcesses.at(0);
-            stoppedProcesses.erase(stoppedProcesses.begin());
-        }
-        else if(strcmp(args[0], "bg") == 0){
 
+        else if(strcmp(args[0], "fg") == 0){
+            if(stoppedProcesses.size() > 0){
+                kill(stoppedProcesses.at(0), SIGCONT);
+                fgProcess = stoppedProcesses.at(0);
+                stoppedProcesses.erase(stoppedProcesses.begin());
+                waitpid(fgProcess, &status, WNOHANG);
+            }
+            else{
+                printf("There are no processes to continue in the foreground.\n");
+            }
+        }
+
+        else if(strcmp(args[0], "bg") == 0){
+            if(stoppedProcesses.size() > 0){
+                kill(stoppedProcesses.at(0), SIGCONT);
+                stoppedProcesses.erase(stoppedProcesses.begin());
+            }
+            else{
+                printf("There are no processes to continue in the background.\n");
+            }
         }
         else if(last == "&"){
             args[cmdCount-1] = '\0';
-            allProcesses.push_back(execute(args, cmdCount));
-            cout << "New Process started with PID " << allProcesses[allProcesses.size() - 1] << endl;
+            cout << "New Process started with PID " << execute(args, cmdCount)<< endl;
         }
         else{
             executeWait(args);
