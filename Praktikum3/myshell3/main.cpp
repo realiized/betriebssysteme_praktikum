@@ -62,7 +62,7 @@ int parseCommand(char *input, char **args)
     return cmdCount;
 }
 
-void  executeWait(char **args)
+void executeWait(char **args)
 {
      pid_t  pid;
      int    status;
@@ -144,11 +144,12 @@ int main()
         }
 
         else if(strcmp(args[0], "fg") == 0){
-            if(stoppedProcesses.size() > 0){
-                kill(stoppedProcesses.at(0), SIGCONT);
-                fgProcess = stoppedProcesses.at(0);
-                stoppedProcesses.erase(stoppedProcesses.begin());
-                waitpid(fgProcess, &status, WNOHANG);
+            if(hgProcesses.size() > 0){
+                //kill(stoppedProcesses.at(0), SIGCONT);
+                fgProcess = hgProcesses.at(0);
+                hgProcesses.erase(hgProcesses.begin());
+                waitpid(fgProcess, &status, WUNTRACED);
+                cout << "waited" << endl;
             }
             else{
                 printf("There are no processes to continue in the foreground.\n");
@@ -158,6 +159,7 @@ int main()
         else if(strcmp(args[0], "bg") == 0){
             if(stoppedProcesses.size() > 0){
                 kill(stoppedProcesses.at(0), SIGCONT);
+                hgProcesses.push_back(stoppedProcesses.at(0));
                 stoppedProcesses.erase(stoppedProcesses.begin());
             }
             else{
@@ -166,7 +168,9 @@ int main()
         }
         else if(last == "&"){
             args[cmdCount-1] = '\0';
-            cout << "New Process started with PID " << execute(args, cmdCount)<< endl;
+            pid_t newP = execute(args, cmdCount);
+            hgProcesses.push_back(newP);
+            cout << "New Process started with PID " << newP << endl;
         }
         else{
             executeWait(args);
