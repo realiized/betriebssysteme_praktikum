@@ -21,14 +21,42 @@ vector<pid_t> stoppedProcesses;
 int status;
 //-VARIABLES
 
+int parseCommand(char *input, char **args)
+{
+    int cmdCount = 0;
+    while (*input != '\0') {       /* wenn nicht ende des inputs */
+          while (*input == ' ' || *input == '\t' || *input == '\n')
+               *input++ = '\0';     /* space mit 0 füllen    */
+          *args++ = input;          /* speichern der argumentlocation    */
+          while (*input != '\0' && *input != ' ' &&
+                 *input != '\t' && *input != '\n')
+               input++;             /* überspringe args bis..*/
+
+          cmdCount++;
+     }
+     *args = '\0';                 /*Ende der args Liste*/
+    return cmdCount;
+}
+
 void handle_SIGINT(int signum){
-    printf("SIGINT");
+    printf("SIGINT %d", fgProcess);
     if(fgProcess > 0){
         kill(fgProcess, SIGINT);
+        waitpid(fgProcess, &status, WUNTRACED);
         fgProcess = 0;
     }
     else{
-        printf("No process to terminate active! \n");
+        string inputString;
+        printf("Wirklich beenden? \n");
+        cin >> inputString;
+        if(inputString == "Y"){
+            if(stoppedProcesses.size() > 0 || hgProcesses.size() > 0){
+                printf("There are still running processes in the background!\n");
+            }
+            else{
+                exit(0);
+            }
+        }
     }
 }
 
@@ -45,21 +73,8 @@ void handle_SIGTSTP(int signum){
     }
 }
 
-int parseCommand(char *input, char **args)
-{
-    int cmdCount = 0;
-    while (*input != '\0') {       /* wenn nicht ende des inputs */
-          while (*input == ' ' || *input == '\t' || *input == '\n')
-               *input++ = '\0';     /* space mit 0 füllen    */
-          *args++ = input;          /* speichern der argumentlocation    */
-          while (*input != '\0' && *input != ' ' &&
-                 *input != '\t' && *input != '\n')
-               input++;             /* überspringe args bis..*/
-
-          cmdCount++;
-     }
-     *args = '\0';                 /*Ende der args Liste*/
-    return cmdCount;
+void handle_SIGCHLD(int signum){
+    waitpid(-1, &status, WNOHANG);
 }
 
 void executeWait(char **args)
@@ -78,6 +93,7 @@ void executeWait(char **args)
      }
      else {                                  /* Vaterprozess    */
           fgProcess = pid;
+          setpgid(pid, pid);
           waitpid(pid, &status, WUNTRACED);       /* warte auf beendigung */
 
      }
@@ -97,6 +113,7 @@ int  execute(char **args, int cmdCount)
           }
           exit(0);
      }
+     setpgid(pid, pid);
      return pid;
 }
 
@@ -112,6 +129,8 @@ int main()
     printf("Signal Handler for CTRL+C loaded!\n");
     signal(SIGTSTP, handle_SIGTSTP);
     printf("Signal Handler for CTRL+Z loaded!\n");
+    signal(SIGCHLD, handle_SIGCHLD);
+    printf("Signal Handler for SIGCHLD loaded!\n");
     //-LOAD
 
     cout << "Welcome to the shell V2" << endl;
@@ -133,7 +152,7 @@ int main()
             strcpy(input, inputString.c_str());
             parseCommand(input, args);
             if(strcmp(args[0], "Y") == 0){
-                if(stoppedProcesses.size() > 0){
+                if(stoppedProcesses.size() > 0 || hgProcesses.size() > 0){
                     printf("There are still running processes in the background!\n");
                 }
                 else{
@@ -144,8 +163,13 @@ int main()
         }
 
         else if(strcmp(args[0], "fg") == 0){
-            if(hgProcesses.size() > 0){
-                //kill(stoppedProcesses.at(0), SIGCONT);
+            if(stoppedProcesses.size() > 0){
+                kill(stoppedProcesses.at(0), SIGCONT);
+                fgProcess = stoppedProcesses.at(0);
+                stoppedProcesses.erase(stoppedProcesses.begin());
+                waitpid(fgProcess, &status, WUNTRACED);
+            }
+            else if(hgProcesses.size() > 0){
                 fgProcess = hgProcesses.at(0);
                 hgProcesses.erase(hgProcesses.begin());
                 waitpid(fgProcess, &status, WUNTRACED);
@@ -157,8 +181,9 @@ int main()
 
         else if(strcmp(args[0], "bg") == 0){
             if(stoppedProcesses.size() > 0){
-                kill(stoppedProcesses.at(0), SIGCONT);
-                hgProcesses.push_back(stoppedProcesses.at(0));
+                pid_t stoppedProcess = stoppedProcesses.at(0);
+                kill(stoppedProcess, SIGCONT);
+                hgProcesses.push_back(stoppedProcess);
                 stoppedProcesses.erase(stoppedProcesses.begin());
             }
             else{
