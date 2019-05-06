@@ -19,6 +19,8 @@ pid_t fgProcess;
 vector<pid_t> hgProcesses;
 vector<pid_t> stoppedProcesses;
 int status;
+bool end = false;
+bool flagLogout = false;
 //-VARIABLES
 
 int parseCommand(char *input, char **args)
@@ -38,6 +40,25 @@ int parseCommand(char *input, char **args)
     return cmdCount;
 }
 
+void logout(){
+    flagLogout = false;
+    string inputString;
+    char  *args[64];
+    cout << "Wollen sie wirklich beenden? Y/N" << endl;
+    getline(cin, inputString);
+    char input[inputString.size()];
+    strcpy(input, inputString.c_str());
+    parseCommand(input, args);
+    if(strcmp(args[0], "Y") == 0){
+        if(stoppedProcesses.size() > 0 || hgProcesses.size() > 0){
+            printf("There are still running processes in the background!\n");
+        }
+        else{
+            end = true;
+        }
+    }
+}
+
 void handle_SIGINT(int signum){
     printf("SIGINT %d", fgProcess);
     if(fgProcess > 0){
@@ -46,17 +67,7 @@ void handle_SIGINT(int signum){
         fgProcess = 0;
     }
     else{
-        string inputString;
-        printf("Wirklich beenden? \n");
-        cin >> inputString;
-        if(inputString == "Y"){
-            if(stoppedProcesses.size() > 0 || hgProcesses.size() > 0){
-                printf("There are still running processes in the background!\n");
-            }
-            else{
-                exit(0);
-            }
-        }
+        flagLogout = true;
     }
 }
 
@@ -74,7 +85,13 @@ void handle_SIGTSTP(int signum){
 }
 
 void handle_SIGCHLD(int signum){
-    waitpid(-1, &status, WNOHANG);
+    pid_t tmpPID = waitpid(-1, &status, WNOHANG);
+    for (int i = 0; i < hgProcesses.size(); i++) {
+        if (hgProcesses.at(i) == tmpPID) {
+            hgProcesses.erase(hgProcesses.begin() + i);
+            break;
+        }
+    }
 }
 
 void executeWait(char **args)
@@ -99,7 +116,7 @@ void executeWait(char **args)
      }
 }
 
-int  execute(char **args, int cmdCount)
+int execute(char **args, int cmdCount)
 {
      pid_t  pid;
      int    status;
@@ -117,10 +134,8 @@ int  execute(char **args, int cmdCount)
      return pid;
 }
 
-
 int main()
 {
-    bool end = false;
     string inputString;
     char  *args[64];
 
@@ -136,8 +151,15 @@ int main()
     cout << "Welcome to the shell V2" << endl;
 
     while(!end){
+        if(flagLogout){
+            logout();
+            continue;
+        }
         cout << "MyShell > ";
         getline(cin, inputString);
+        if(inputString.size()<1){
+            continue;
+        }//else
         char input[inputString.size()];
         strcpy(input, inputString.c_str());
         cout << input << endl;
@@ -145,23 +167,9 @@ int main()
 
         string last(args[cmdCount-1]);
 
-
         if (strcmp(args[0], "logout") == 0){
-            cout << "Wollen sie wirklich beenden? Y/N\n" << endl;
-            getline(cin, inputString);
-            strcpy(input, inputString.c_str());
-            parseCommand(input, args);
-            if(strcmp(args[0], "Y") == 0){
-                if(stoppedProcesses.size() > 0 || hgProcesses.size() > 0){
-                    printf("There are still running processes in the background!\n");
-                }
-                else{
-                    return 0;
-                }
-
-            }
+            flagLogout = true;
         }
-
         else if(strcmp(args[0], "fg") == 0){
             if(stoppedProcesses.size() > 0){
                 kill(stoppedProcesses.at(0), SIGCONT);
