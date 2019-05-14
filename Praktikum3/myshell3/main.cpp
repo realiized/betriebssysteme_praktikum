@@ -94,7 +94,7 @@ int cinInput(char **args){
     getline(cin, inputString);
     if (inputString.size() == 0) {
         return 0;
-    }
+    }// else
     input = new char[inputString.size()];
     strcpy(input, inputString.c_str());
     int count = parseCommand(input, args);
@@ -116,11 +116,15 @@ void logout(){
     }
 }
 
+pid_t contStopped(){
+    pid_t stoppedProcess = stoppedProcesses.at(0);
+    kill(stoppedProcess, SIGCONT);
+    stoppedProcesses.erase(stoppedProcesses.begin());
+}
+
 void fg(){
     if(stoppedProcesses.size() > 0){
-        kill(stoppedProcesses.at(0), SIGCONT);
-        fgProcess = stoppedProcesses.at(0);
-        stoppedProcesses.erase(stoppedProcesses.begin());
+        pid_t stoppedProcess = contStopped();
         waitpid(fgProcess, &status, WUNTRACED);
     }
     else if(hgProcesses.size() > 0){
@@ -135,10 +139,8 @@ void fg(){
 
 void bg(){
     if(stoppedProcesses.size() > 0){
-        pid_t stoppedProcess = stoppedProcesses.at(0);
-        kill(stoppedProcess, SIGCONT);
+        pid_t stoppedProcess = contStopped();
         hgProcesses.push_back(stoppedProcess);
-        stoppedProcesses.erase(stoppedProcesses.begin());
     }
     else{
         printf("There are no processes to continue in the background.\n");
