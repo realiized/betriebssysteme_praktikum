@@ -1,0 +1,2 @@
+g++ -o baecker.o main.cpp
+./baecker.o
