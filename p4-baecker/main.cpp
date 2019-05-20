@@ -1,11 +1,13 @@
 #include <iostream>
 #include <stdlib.h>
+#include <pthread.h>
+#include <unistd.h>
 
 using namespace std;
 
 /* Options and Defaults */
 struct Options {
-    // How many baker-threads
+    // How many breads per interval r
     int b = 1;
     // Max length of queue
     int l = 5;
@@ -16,6 +18,20 @@ struct Options {
     // interval of baking bread
     int r = 1;
 } options; // name of variable!
+
+bool end = false;
+int readyBreads = 0;
+
+struct Baker {
+
+} baker;
+
+void * bake(void* v){
+    while(!end){
+        readyBreads += options.b;
+        sleep(options.r);
+    }
+}
 
 void throwError(string msg){
     cout << msg << endl << flush;
@@ -51,7 +67,7 @@ void setParams(int argc, char *args[])
             case 'n':
                 options.n = val; // string to int
                 break;
-            case 't':
+            case 'r':
                 options.r = val; // string to int
                 break;
             default: // Error wrong input
@@ -72,8 +88,7 @@ void setParams(int argc, char *args[])
     }
 }
 
-/* For Testing Purposes */
-void printParams(){
+void printOptions(){
     cout << "b : " << options.b << endl;
     cout << "m : " << options.m << endl;
     cout << "n : " << options.n << endl;
@@ -82,10 +97,29 @@ void printParams(){
     cout << flush;
 }
 
+void * printBreads(void* v){
+    while(!end) {
+        cout << "readyBreads : " << readyBreads << endl << flush;
+        sleep(1);
+    }
+}
+
 int main(int argc, char *args[])
-{   
+{
     setParams(argc, args);
-    printParams();
+    printOptions();
+
+    pthread_t thBaker;
+    pthread_t thPrinter;
+
+    // start baker-thread
+    pthread_create(&thBaker, NULL, bake, (void*)NULL);
+
+    // Start Logging Thread
+    pthread_create(&thPrinter, NULL, printBreads, (void*)NULL);
+
+    sleep (20);
+
     return 0;
 }
 
