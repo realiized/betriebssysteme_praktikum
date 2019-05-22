@@ -1,2 +1,2 @@
-g++ -o baecker.o main.cpp -lpthread
+g++ -std=c++11 -o baecker.o main.cpp -lpthread
 ./baecker.o

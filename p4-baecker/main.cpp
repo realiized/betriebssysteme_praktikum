@@ -1,40 +1,153 @@
-#include <iostream>
+#include <string>       // std::string
+#include <iostream>     // std::cout
+#include <sstream>      // std::stringstream, std::stringbuf
 #include <stdlib.h>
 #include <pthread.h>
 #include <unistd.h>
+#include <semaphore.h>
+#include <queue>
+#include <mutex>
 
 using namespace std;
 
 /* Options and Defaults */
 struct Options {
     // How many breads per interval r
-    int b = 1;
-    // Max length of queue
-    int l = 5;
-    // Number of customers
-    int m = 4;
-    // Number of Employees
-    int n = 1;
+    int b = 10;
     // interval of baking bread
     int r = 1;
+    // Max length of queue
+    int l = 5;
+    // Max number of breads / customer
+    int x = 10;
+    // Number of customers
+    int m = 20;
+    // Max time of walking
+    int s = 10;
+    // Number of Employees
+    int n = 3;
 } options; // name of variable!
 
-bool end = false;
-int readyBreads = 0;
+struct Customer {
+    int id = 0;
+    int wantsBread = 1;
+    int gotBread = 0;
+    sem_t served;
+};
 
-struct Baker {
+bool bakeryClosed = false;
 
-} baker;
+mutex mutexCout;
+void mCout(string toOutput){
+    mutexCout.lock();
+    cout << toOutput << endl << flush;
+    mutexCout.unlock();
+}
 
-void * bake(void* v){
-    while(!end){
-        readyBreads += options.b;
+// init in main
+sem_t customersWaiting;
+
+queue<Customer*> customers;
+mutex dequeCust;
+Customer * dequeCustomer(){
+    sem_wait(&customersWaiting);
+    dequeCust.lock();
+    Customer * c =  customers.front();
+    customers.pop();
+    dequeCust.unlock();
+    return c;
+}
+
+void enqueCustomer(Customer * c){
+    dequeCust.lock();
+    customers.push(c);
+    sem_post(&customersWaiting);
+    dequeCust.unlock();
+    stringstream msg;
+    msg << "Customer " << c->id << " enqueued.";
+    mCout(msg.str());
+    sem_wait(&(c->served));
+}
+
+void sendCustomerHome(int eId, Customer * c) {
+    sem_post(&(c->served));
+    stringstream msg;
+    msg << "Customer " << c->id << " served by Employee " << eId << ". He wanted " << c->wantsBread << " and got " << c->gotBread << " Breads.";
+    mCout(msg.str());
+}
+
+// init in main
+sem_t readyBreads;
+
+// BAKER-THREAD
+void * bake (void* v){
+    while(!bakeryClosed){
+        for (int i = 0; i < options.b; ++i) {
+            sem_post(&readyBreads);
+        }
+        stringstream msg;
+        msg << "Baker baked " << options.b << " breads.";
+        mCout(msg.str());
         sleep(options.r);
     }
+
+    void * thReturn;
+    pthread_exit(thReturn);
+}
+
+// EMPLOYEE-THREAD
+void * work (void* v){
+   int id = (int) v;
+   while(!bakeryClosed){
+       sem_wait(&readyBreads); // Don't get next customer as long as no bread is there
+       // Get next Customer. Waiting if no Customer in Queue
+       Customer * c = dequeCustomer();
+       c->gotBread = 1; // First is already taken by employee
+
+       for (int i = 1; i < c->wantsBread; ++i) {
+           if (sem_trywait(&readyBreads) == 0) {
+               c->gotBread += 1;
+           } else {
+               break;
+           }
+       }
+       sendCustomerHome(id, c);
+   }
+
+   void * thReturn;
+   pthread_exit(thReturn);
+}
+
+int semGetValue(sem_t * sem){
+    int val;
+    sem_getvalue(sem, &val);
+    return val;
+}
+
+// CUSTOMER-THREAD
+void * doCustomerThings (void* v){
+    Customer * c = new Customer;
+    c->id = (int) v;
+    c->wantsBread = (rand() % options.x) +1;
+    sem_init(&(c->served),0,0);
+    while(!bakeryClosed && customers.size() >= options.l || semGetValue(&readyBreads) <= 0){
+        // No Breads Available. Don't Enque. Go for a Walk.
+        int randSec = rand() % options.s;
+        stringstream msg;
+        msg << "Customer " << c->id  << " goes for a walk for " << randSec << " Seconds.";
+        mCout(msg.str());
+        sleep(randSec);
+    }
+    if (!bakeryClosed) {
+        enqueCustomer(c);
+    }
+    void * thReturn;
+    pthread_exit(thReturn);
 }
 
 void throwError(string msg){
-    cout << msg << endl << flush;
+    mCout(msg);
+    bakeryClosed = true;
     exit(EXIT_FAILURE);
 }
 
@@ -45,63 +158,54 @@ void setParams(int argc, char *args[])
     for (int i = 1; i < argc-1; i+=2) {
         char * opt = args[i];
         char * valC = args[i+1];
-        int val = atoi(valC);
-        if (val == 0) { // not a digit OR just 0. Both fail
-            string m = "wrong Input Param - invalid Number: ";
-            m += opt;
-            m += " ";
-            m += valC;
-            throwError(m);
-        } // else
-        if (opt[0] == '-') { // is option
+        int val = atoi(valC); //string to int
+        if (opt[0] == '-' && val != 0) { // is option
             switch (opt[1]) { // which option?
             case 'b':
-                options.b = val; // string to int
+                options.b = val;
+                break;
+            case 'x':
+                options.x = val;
                 break;
             case 'l':
-                options.l = val; // string to int
+                options.l = val;
                 break;
             case 'm':
-                options.m = val; // string to int
+                options.m = val;
                 break;
             case 'n':
-                options.n = val; // string to int
+                options.n = val;
+                break;
+            case 's':
+                options.s = val;
                 break;
             case 'r':
-                options.r = val; // string to int
+                options.r = val;
                 break;
             default: // Error wrong input
-                string  m = "wrong Input Param - Unknown Option: ";
-                m += opt;
-                m += " ";
-                m += val;
-                throwError(m);
+                stringstream m;
+                m << "wrong Input Param - Unknown Option: " << opt << " " << val;
+                throwError(m.str());
                 break;
             }
         } else {
-            string  m = "wrong Input Param - Not an Option: ";
-            m += opt;
-            m += " ";
-            m += val;
-            throwError(m);
+            stringstream  m;
+            m << "Invalid Input Param : " <<opt << " " << valC;
+            throwError(m.str());
         }
     }
 }
 
 void printOptions(){
-    cout << "b : " << options.b << endl;
-    cout << "m : " << options.m << endl;
-    cout << "n : " << options.n << endl;
-    cout << "l : " << options.l << endl;
-    cout << "r : " << options.r << endl;
-    cout << flush;
-}
-
-void * printBreads(void* v){
-    while(!end) {
-        cout << "readyBreads : " << readyBreads << endl << flush;
-        sleep(1);
-    }
+    stringstream msg;
+    msg << "Options:\nb : " << options.b
+        <<"\nm : " << options.m
+        <<"\nx : " << options.x
+        <<"\nn : " << options.n
+        <<"\ns : " << options.s
+        <<"\nl : " << options.l
+        <<"\nr : " << options.r;
+    mCout(msg.str());
 }
 
 int main(int argc, char *args[])
@@ -109,16 +213,43 @@ int main(int argc, char *args[])
     setParams(argc, args);
     printOptions();
 
+    sem_init(&readyBreads, 0, 0);
+    sem_init(&customersWaiting, 0, 0);
+
     pthread_t thBaker;
-    pthread_t thPrinter;
+    pthread_t thEmployee [options.n];
+    pthread_t thCustomer [options.m];
+
 
     // start baker-thread
     pthread_create(&thBaker, NULL, bake, (void*)NULL);
+    for(int i = 0; i < options.n; i++){
+        pthread_create(&thEmployee[i], NULL, work, (void*)i);
+    }
 
-    // Start Logging Thread
-    pthread_create(&thPrinter, NULL, printBreads, (void*)NULL);
+    for(int i = 0; i < options.m; i++){
+        pthread_create(&thCustomer[i], NULL, doCustomerThings, (void*)i);
+    }
 
-    sleep (20);
+    // Tidy up. Close bakery after all Customers are served.
+    void * thReturn;
+    for(int i = 0; i < options.m; i++){
+        pthread_join(thCustomer[i],&thReturn);
+    }
+    bakeryClosed = true;
+
+    mCout("Joined Customer Threads");
+
+    for(int i = 0; i < options.n; i++){
+        pthread_join(thEmployee[i],&thReturn);
+    }
+
+
+    mCout("Joined Employee Threads");
+
+    pthread_join(thBaker,&thReturn);
+
+    mCout("Joined Baker Thread");
 
     return 0;
 }
