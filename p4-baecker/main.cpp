@@ -63,17 +63,21 @@ void enqueCustomer(Customer * c){
     customers.push(c);
     sem_post(&customersWaiting);
     dequeCust.unlock();
-    stringstream msg;
-    msg << "Customer " << c->id << " enqueued.";
-    mCout(msg.str());
+    if (c->id>=0) {
+        stringstream msg;
+        msg << "Customer " << c->id << " enqueued.";
+        mCout(msg.str());
+    }
     sem_wait(&(c->served));
 }
 
 void sendCustomerHome(int eId, Customer * c) {
-    sem_post(&(c->served));
-    stringstream msg;
-    msg << "Customer " << c->id << " served by Employee " << eId << ". He wanted " << c->wantsBread << " and got " << c->gotBread << " Breads.";
-    mCout(msg.str());
+    if (c->id >= 0) {
+        sem_post(&(c->served));
+        stringstream msg;
+        msg << "Customer " << c->id << " served by Employee " << eId << ". He wanted " << c->wantsBread << " and got " << c->gotBread << " Breads.";
+        mCout(msg.str());
+    }
 }
 
 // init in main
@@ -236,14 +240,23 @@ int main(int argc, char *args[])
     for(int i = 0; i < options.m; i++){
         pthread_join(thCustomer[i],&thReturn);
     }
-    bakeryClosed = true;
 
     mCout("Joined Customer Threads");
 
+    bakeryClosed = true;
+
+    for(int i = 0; i < options.n; i++){
+        // Enque Pseudo Customers to end Employees
+        Customer c;
+        c.wantsBread = 0;
+        c.id = -1;
+        enqueCustomer(&c);
+        // Bake Pseudo-Breads
+        sem_post(&readyBreads);
+    }
     for(int i = 0; i < options.n; i++){
         pthread_join(thEmployee[i],&thReturn);
     }
-
 
     mCout("Joined Employee Threads");
 
