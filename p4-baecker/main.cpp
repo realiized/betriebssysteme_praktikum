@@ -59,7 +59,6 @@ Customer * dequeCustomer(){
 }
 
 void enqueCustomer(Customer * c){
-    dequeCust.lock();
     customers.push(c);
     sem_post(&customersWaiting);
     dequeCust.unlock();
@@ -134,13 +133,16 @@ void * doCustomerThings (void* v){
     c->id = (int) v;
     c->wantsBread = (rand() % options.x) +1;
     sem_init(&(c->served),0,0);
+    dequeCust.lock();
     while(!bakeryClosed && customers.size() >= options.l || semGetValue(&readyBreads) <= 0){
         // No Breads Available. Don't Enque. Go for a Walk.
         int randSec = rand() % options.s;
         stringstream msg;
         msg << "Customer " << c->id  << " goes for a walk for " << randSec << " Seconds.";
         mCout(msg.str());
+        dequeCust.unlock();
         sleep(randSec);
+        dequeCust.lock();
     }
     if (!bakeryClosed) {
         enqueCustomer(c);
