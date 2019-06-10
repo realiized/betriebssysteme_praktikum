@@ -1,0 +1,6 @@
+for p in $(sudo docker ps -aq); do sudo docker stop $p; sudo docker rm $p; done
+sudo docker build --tag reskiller .
+sudo docker run -it -d --name normal reskiller
+sudo docker run -it -d --name toLimit reskiller
+sudo docker run -it -d --name cpuWeight512 --cpu-shares 512 reskiller 
+sudo docker run -it -d --name mem500 -m 500m reskiller

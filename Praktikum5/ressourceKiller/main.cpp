@@ -7,7 +7,7 @@ using namespace std;
 int main()
 {
     int * list = new int(1);
-    for (int j = 0; j < 4000000000; ++j) {
+    for ( int j = 0; j < 2000000000; ++j) {
         list = new int(*list * rand());
     }
 }
