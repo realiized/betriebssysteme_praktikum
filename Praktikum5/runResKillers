@@ -1,10 +1,19 @@
+echo "start docker containers"
+sudo docker start normal cpuWeight512 mem500 toLimit
 echo "running main.o without container"
 ./ressourceKiller/main.o
+sleep 1s
 echo "running main.o in normal container without restrictions"
 sudo docker exec normal ./main.o
-echo "running main.o in toLimit and set nice to -19 to running main.o processes"
-sudo docker exec toLimit ./main.o && for p in $(pidof ./main.o); do renice -n -19 -p $p; done
+sleep 1s
 echo "running main.o in cpuWeight512 Container (Container weighted with 512 instead 1024)"
 sudo docker exec cpuWeight512 ./main.o
+sleep 1s
 echo "running main.o in mem500 Container. Restricted Memory to 500MB"
 sudo docker exec mem500 ./main.o
+sleep 1s
+echo "running main.o in toLimit and set nice to -19 to running main.o processes"
+sudo docker exec -d toLimit ./main.o
+sleep 0.1s
+#echo "renicing process to -19"
+for p in $(pidof ./main.o); do sudo renice -n -19 -p $p;done
